@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import os
 #! khob hajimoon VGG
 #! yeki az maroof tarin backbone haye transfer learning
 
@@ -13,6 +14,7 @@ VGG_types = {
 class VGG(nn.Module):
 
     def __init__(self, type='VGG16'):
+        super(VGG, self).__init__()
         self.num_classes = 1000
         self.in_channels = 3
         self.type = type
@@ -34,5 +36,40 @@ class VGG(nn.Module):
         out = out.reshape(out.shape[0], -1)
         out = self.fcs(out)
         return out
-
     
+    def create_conv_layers(self, architecture):
+        #! inja bar asas e cfg miaim architecture ro misazim
+        #! moshabehesh ro too yolo dashtim:
+        layers = []
+        in_channels = self.in_channels
+
+        for x in architecture:
+            if type(x) == int:
+                out_channels = x
+                layers += [
+                    nn.Conv2d(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=(3, 3),
+                        stride=(1, 1),
+                        padding=(1, 1),
+                    ),
+                    nn.BatchNorm2d(x),
+                    nn.ReLU(),
+                ]
+                in_channels = x
+
+            elif x == "M":
+                layers += [nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2))]
+
+        return nn.Sequential(*layers)
+
+
+if __name__ == "__main__":
+    os.system('cls')
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f'used device : {device}')
+    model = VGG().to(device)
+    print(model)
+    x = torch.randn(20, 3, 224, 224).to(device)
+    print(model(x).shape)
