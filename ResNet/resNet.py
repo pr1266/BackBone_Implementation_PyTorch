@@ -20,10 +20,15 @@ import torch.nn as nn
 #! miaim output ro F(x) + x dar nazar migirim
 #! tavajoh shavad ke agar size F(x) va x barabar nabashe,
 #! bayad down_sample konim
-class Block(nn.Module):
+
+class ResBlock(nn.Module):
 
     def __init__(self, in_channels, intermediate_channels, identity_downsample=None,stride=1):
-        super(Block, self).__init__()
+        #! agha, in ResBlock ha baraye arc haye mokhtalef fargh daran
+        #! memari 18 layer o 34 layer, residual block hashoon 2 taiie va
+        #! oon expansion e akharam nadaran
+        #! vali too arc haye 50, 101, 152 layer in shekli dar miad:
+        super(ResBlock, self).__init__()
         self.expansion = 4
         self.conv1 = nn.Conv2d(in_channels, intermediate_channels, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(intermediate_channels)
@@ -44,3 +49,29 @@ class Block(nn.Module):
             padding=0,
             bias=False
         )
+        self.bn3 = nn.BatchNorm2d(intermediate_channels * self.expansion)
+        self.relu = nn.ReLU()
+        self.identity_downsample = identity_downsample
+        self.stride = stride
+
+    def forward(self, x):
+        #! moteghayer e identity, hamoon x e
+        #! ke baadan be F(x) ezafe mikonim:
+        identity = x.clone()
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.identity_downsample is not None:
+            identity = self.identity_downsample(identity)
+
+        out += identity
+        out = self.relu(out)
+        return out
+    
