@@ -46,3 +46,26 @@ class leNet(nn.Module):
             in_features=84,
             out_features=10
         )
+
+    def forward(self, x):
+        out = self.conv1(x)
+        print(f'conv1 output shape : {out.size()}')
+        out = self.relu(out)
+        out = self.pool(out)
+        print(f'pooling1 output shape : {out.size()}')
+        out = self.conv2(out)
+        print(f'conv2 output shape : {out.size()}')
+        out = self.relu(out)
+        out = self.pool(out)
+        print(f'pooling2 output shape : {out.size()}')
+        out = self.conv3(out)
+        print(f'conv3 output shape : {out.size()}')
+        out = self.relu(out)
+        #! flatten:
+        out = out.reshape(x.shape[0], -1)
+        out = self.linear1(out)
+        print(f'linear1 output shape : {out.size()}')
+        out = self.relu(out)
+        out = self.linear2(out)
+        print(f'linear2 output shape : {out.size()}')
+        return out
