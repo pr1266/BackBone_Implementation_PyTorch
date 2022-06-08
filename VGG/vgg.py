@@ -11,6 +11,16 @@ VGG_types = {
     "VGG19": [ 64, 64, "M", 128, 128, "M", 256, 256, 256, 256, "M", 512, 512, 512, 512, "M", 512, 512, 512, 512, "M",],
 }
 
+#! yeki az moshkelat e Sequential API ha ine ke nemitooni output ro moshakhas koni
+#! hala ye Custom Layer Dorost mikonim ta betoonim shape ro print konim:
+class PrintLayer(nn.Module):
+    def __init__(self):
+        super(PrintLayer, self).__init__()
+    
+    def forward(self, x):
+        print(x.size())
+        return x
+
 class VGG(nn.Module):
 
     def __init__(self, type='VGG16'):
@@ -54,13 +64,14 @@ class VGG(nn.Module):
                         stride=(1, 1),
                         padding=(1, 1),
                     ),
+                    PrintLayer(),
                     nn.BatchNorm2d(x),
                     nn.ReLU(),
                 ]
                 in_channels = x
 
             elif x == "M":
-                layers += [nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2))]
+                layers += [nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)), PrintLayer()]
 
         return nn.Sequential(*layers)
 
