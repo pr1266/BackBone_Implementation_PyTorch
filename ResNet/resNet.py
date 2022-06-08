@@ -75,7 +75,6 @@ class ResBlock(nn.Module):
         out = self.relu(out)
         return out
     
-
 class ResNet(nn.Module):
     def __init__(self, layers, image_channels, num_classes):
         super(ResNet, self).__init__()
@@ -102,28 +101,35 @@ class ResNet(nn.Module):
         self.fc = nn.Linear(512 * 4, num_classes)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        out = self.conv1(x)
+        print(f'output size of conv Layer : {out.size()}')
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.maxpool(out)
+        print(f'output size of max pool Layer : {out.size()}')
+        out = self.layer1(out)
+        print(f'output size of residual Layer 1 : {out.size()}')
+        out = self.layer2(out)
+        print(f'output size of residual Layer 2 : {out.size()}')
+        out = self.layer3(out)
+        print(f'output size of residual Layer 3 : {out.size()}')
+        out = self.layer4(out)
+        print(f'output size of residual Layer 4 : {out.size()}')
+        out = self.avgpool(out)
+        print(f'output size of average pooling layer : {out.size()}')
+        out = out.reshape(out.shape[0], -1)
+        print(f'output size of flatten : {out.size()}')
+        out = self.fc(out)
+        print(f'output size of dense layer : {out.size()}')
 
-        x = self.avgpool(x)
-        x = x.reshape(x.shape[0], -1)
-        x = self.fc(x)
-
-        return x
+        return out
 
     def _make_layer(self, num_residual_blocks, intermediate_channels, stride):
         identity_downsample = None
         layers = []
-
-        # Either if we half the input space for ex, 56x56 -> 28x28 (stride=2), or channels changes
-        # we need to adapt the Identity (skip connection) so it will be able to be added
-        # to the layer that's ahead
+        #! agha! age size F(x) ba x yeki nabashe bayad che konim?
+        #! daghighan miaim ham sizeshoon mikonim
+        #! aval downsample ro misazim baad add mikonim ke dashte bashimesh
         if stride != 1 or self.in_channels != intermediate_channels * 4:
             identity_downsample = nn.Sequential(
                 nn.Conv2d(
@@ -131,6 +137,7 @@ class ResNet(nn.Module):
                     intermediate_channels * 4,
                     kernel_size=1,
                     stride=stride,
+                    #! chera bias Fasle? chon too paper gofte
                     bias=False
                 ),
                 nn.BatchNorm2d(intermediate_channels * 4),
@@ -140,13 +147,32 @@ class ResNet(nn.Module):
             ResBlock(self.in_channels, intermediate_channels, identity_downsample, stride)
         )
 
-        # The expansion size is always 4 for ResNet 50,101,152
         self.in_channels = intermediate_channels * 4
 
-        # For example for first resnet layer: 256 will be mapped to 64 as intermediate layer,
-        # then finally back to 256. Hence no identity downsample is needed, since stride = 1,
-        # and also same amount of channels.
+        #! hala inja oon residual block haro misazimeshoon:
         for i in range(num_residual_blocks - 1):
             layers.append(ResBlock(self.in_channels, intermediate_channels))
 
         return nn.Sequential(*layers)
+
+
+
+def ResNet50(img_channel=3, num_classes=1000):
+    return ResNet([3, 4, 6, 3], img_channel, num_classes)
+
+
+def ResNet101(img_channel=3, num_classes=1000):
+    return ResNet([3, 4, 23, 3], img_channel, num_classes)
+
+
+def ResNet152(img_channel=3, num_classes=1000):
+    return ResNet([3, 8, 36, 3], img_channel, num_classes)
+
+
+def test():
+    net = ResNet101(img_channel=3, num_classes=1000)
+    y = net(torch.randn(4, 3, 224, 224)).to("cuda")
+    print(y.size())
+
+
+test()
