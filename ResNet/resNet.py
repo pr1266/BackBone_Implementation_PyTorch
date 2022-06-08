@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import os
 #! por citation tarin maghale computer vision donya !!!!
 #! ajab shabake ii !!
 #! falsafe ResNet :
@@ -170,9 +170,10 @@ def ResNet152(img_channel=3, num_classes=1000):
 
 
 def test():
-    net = ResNet101(img_channel=3, num_classes=1000)
-    y = net(torch.randn(4, 3, 224, 224)).to("cuda")
-    print(y.size())
-
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    os.system('cls')
+    model = ResNet101(img_channel=3, num_classes=1000).to(device)
+    x = torch.randn(4, 3, 224, 224).to(device)
+    y = model(x)
 
 test()
