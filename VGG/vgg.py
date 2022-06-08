@@ -14,11 +14,13 @@ VGG_types = {
 #! yeki az moshkelat e Sequential API ha ine ke nemitooni output ro moshakhas koni
 #! hala ye Custom Layer Dorost mikonim ta betoonim shape ro print konim:
 class PrintLayer(nn.Module):
-    def __init__(self):
+    def __init__(self, type, index):
         super(PrintLayer, self).__init__()
-    
+        self.type = type
+        self.index = index
+
     def forward(self, x):
-        print(x.size())
+        print(f'size of {self.type} layer {self.index} : {x.size()}')
         return x
 
 class VGG(nn.Module):
@@ -29,15 +31,18 @@ class VGG(nn.Module):
         self.in_channels = 3
         self.type = type
         self.conv_layers = self.create_conv_layers(VGG_types[self.type])
-
+        fc_index = 1
         self.fcs = nn.Sequential(
             nn.Linear(512 * 7 * 7, 4096),
             nn.ReLU(),
+            PrintLayer(type='dense', index=1),
             nn.Dropout(p=0.5),
             nn.Linear(4096, 4096),
             nn.ReLU(),
+            PrintLayer(type='dense', index=2),
             nn.Dropout(p=0.5),
-            nn.Linear(4096, self.num_classes)
+            nn.Linear(4096, self.num_classes),
+            PrintLayer(type='dense', index=3)
         )
     
     def forward(self, x):
@@ -52,7 +57,8 @@ class VGG(nn.Module):
         #! moshabehesh ro too yolo dashtim:
         layers = []
         in_channels = self.in_channels
-
+        conv_index = 1
+        max_pool_index = 1
         for x in architecture:
             if type(x) == int:
                 out_channels = x
@@ -64,15 +70,17 @@ class VGG(nn.Module):
                         stride=(1, 1),
                         padding=(1, 1),
                     ),
-                    PrintLayer(),
+                    PrintLayer(type='conv', index=conv_index),
                     nn.BatchNorm2d(x),
                     nn.ReLU(),
                 ]
+                conv_index += 1
                 in_channels = x
 
             elif x == "M":
-                layers += [nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)), PrintLayer()]
-
+                
+                layers += [nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)), PrintLayer(type='max pool', index=max_pool_index)]
+                max_pool_index += 1
         return nn.Sequential(*layers)
 
 
@@ -81,6 +89,5 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f'used device : {device}')
     model = VGG().to(device)
-    print(model)
     x = torch.randn(20, 3, 224, 224).to(device)
     print(model(x).shape)
