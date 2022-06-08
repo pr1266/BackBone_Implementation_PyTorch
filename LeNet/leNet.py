@@ -69,3 +69,11 @@ class leNet(nn.Module):
         out = self.linear2(out)
         print(f'linear2 output shape : {out.size()}')
         return out
+
+def test():
+    inp = torch.randn(64, 1, 32, 32)
+    print(f'size of input : {inp.size()}')
+    model = leNet()
+    model(inp)
+
+test()
