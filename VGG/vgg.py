@@ -27,3 +27,12 @@ class VGG(nn.Module):
             nn.Dropout(p=0.5),
             nn.Linear(4096, self.num_classes)
         )
+    
+    def forward(self, x):
+        out = self.conv_layers(x)
+        #! flatten:
+        out = out.reshape(out.shape[0], -1)
+        out = self.fcs(out)
+        return out
+
+    
