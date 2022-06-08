@@ -10,7 +10,7 @@ import  torch.nn as nn
 #! dobare avg pooling zade shode 5 * 5 * 16
 #! baad conv zade 120 ta channel dare 1 * 1 baad flatten mizane o miad
 #! roo FC va tamam. kheili simple :)
-
+leNet_cfg = [()]
 class leNet(nn.Module):
 
     def __init__(self):
