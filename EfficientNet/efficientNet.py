@@ -3,6 +3,28 @@ import torch.nn as nn
 from math import ceil
 import os
 
+#! inja chand ta estelah darim aval:
+#! depth scaling: agha ghabool darim harchi depth network
+#! bishtar bashe va layer haye bishtari dashte bashim
+#! accuracy mire bala tar pas age depth shabake ro bishtar konim
+#! mishe depth scaling, hamoon tor ke too resNet dashtim (gradient vanishing)
+#! hala ma layer hamoon ziade, dar natije, parameter hamoonam ziade
+#! dar natije computation cost ziadi darim hala ino chetor hal konim?
+#! efficient net mige ma faghat depth ro scale nemikonim, 1- depth, 2- width
+#! va 3- resolution ro scale mikonim. roo resolution idashoon chie?
+#! mige vaghti resolution ro bebarim bala detail e ghabel e extract
+#! az tasvir mire bala. be ebarati more pixels more information and
+#! complex features ## ye chi in vasat bezaram: DPI -> dots per inch:)
+#! hala resolution ke mire bala bayad depth bere bala ke betoone khoob
+#! feature extract kone. baad migim khob hala ma resolution ro x ta ziad
+#! kardim, depth cheghad ziad she ke motanaseb bashe? in soalo dashte bashid felan (**1**)
+#! width scaling chie? mige man channel haye conv ro bishtar mikonam va channel haro
+#! wide tar mikonam. too paper behesh feature map ham gofte. khob tabiie
+#! alan channel haro ziad tar konim dataye bishtar va feature haye bishtari
+#! az tasvir mitoonim dararim. chera ino ziad mikonim? chon az oonvar resolution
+#! rafte bala. hala width ro cheghadr ziad konim? inam soal 2vom(**2**)
+#! hala asan efficientNet bar asas e in 2 ta soal va in 3 ta mafhoom dorost shode
+
 class PrintLayer(nn.Module):
     def __init__(self, type, index):
         super(PrintLayer, self).__init__()
