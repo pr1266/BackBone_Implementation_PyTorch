@@ -34,6 +34,9 @@ import os
 #? beta -> width scaling factor
 #? gamma -> resolution sacling factor
 #! va ye scale factor darim : alpha . beta ^ phi . gamma ^ phi
+#! in factor ha ba grid search dar miad
+#! in phi ham compound scale factor ham behesh migan
+#! 
 
 class PrintLayer(nn.Module):
     def __init__(self, type, index):
@@ -68,6 +71,7 @@ phi_values = {
     "b7": (6, 600, 0.5),
 }
 
+#! inke cnnBlocke asan hichi
 class CnnBlock(nn.Module):
     #! agha age group=1 bashe cnn mamoolie
     #! age be andaze in_channels bashe, mishe DepthWise conv
@@ -75,9 +79,11 @@ class CnnBlock(nn.Module):
         super(CnnBlock, self).__init__()
         self.cnn = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, groups=groups, bias=False)
         self.bn = nn.BatchNorm2d(out_channels)
+        #! activation function:
         self.silu = nn.SiLU()
 
     def forward(self, x):
+        #! inam vazehe dige
         return self.silu(self.bn(self.cnn(x)))
 
 class SqueezeExcitation(nn.Module):
