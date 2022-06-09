@@ -24,6 +24,16 @@ import os
 #! az tasvir mitoonim dararim. chera ino ziad mikonim? chon az oonvar resolution
 #! rafte bala. hala width ro cheghadr ziad konim? inam soal 2vom(**2**)
 #! hala asan efficientNet bar asas e in 2 ta soal va in 3 ta mafhoom dorost shode
+#! efficient net ye series az model hast az b0 ta b7 ke b0 baseline model e
+#! in b0 ba NAS be dast oomade neural architucture search ke nemidoonam chie
+#! dar vaghea mige az rooye yek seri neural network dige sakhte shode
+#! khob baraye pasokh dadan be in soal miaim barresi mikonim:
+#! 4 ta parameter darim tooye in paper:
+#! phi, alpha, beta va gamma
+#? alpha -> depth scaling factor
+#? beta -> width scaling factor
+#? gamma -> resolution sacling factor
+#! va ye scale factor darim : alpha . beta ^ phi . gamma ^ phi
 
 class PrintLayer(nn.Module):
     def __init__(self, type, index):
