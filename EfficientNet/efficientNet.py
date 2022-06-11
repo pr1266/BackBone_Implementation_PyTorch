@@ -36,7 +36,14 @@ import os
 #! va ye scale factor darim : alpha . beta ^ phi . gamma ^ phi
 #! in factor ha ba grid search dar miad
 #! in phi ham compound scale factor ham behesh migan
-#! 
+#! hala fargh implementesh ine ke miad az inverted residual block
+#! estefade mikone, in Inverted Residual Block chie?
+#! too resNet va residual block ye feature map e Wide darim
+#! ke ba conv miad laghar mishe (compress) va dar nahayat ba kernel size 1 channel
+#! hasho dobare wide mikardim ta beshe size avalish
+#! ama inja fargh dare. miad az narrow -> wide -> narrow estefade mikone
+#! yani chi? miad channel haro ziad mikone, tahesh dobare kamesh mikone
+#! va F(x) ro ba x jam mikone
 
 class PrintLayer(nn.Module):
     def __init__(self, type, index):
@@ -106,6 +113,7 @@ class InvertdResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding, expand_ratio, reduction=4, survival_prob=0.8):
         super(InvertdResidualBlock, self).__init__()
         self.survival_prob = survival_prob
+        #! shart residual block:
         self.use_residual = in_channels == out_channels and stride == 1
         hidden_dim = in_channels * expand_ratio
         self.expand = in_channels != hidden_dim
