@@ -32,13 +32,18 @@ class FireBlock(nn.Module):
 
     def __init__(self, in_channels, s_channels, exp1_channels, exp3_channels):
         super(FireBlock, self).__init__()
+        self.in_channels = in_channels
+        self.s_channels = s_channels
+        self.exp1_channels = exp1_channels
+        self.exp3_channels = exp3_channels
+
         self.print = PrintLayer()
         #! inja activation esh:
         self.activation = nn.ReLU(inplace=True)
         #! inja structuresh darmiad:
         self.s = nn.Conv2d(in_channels, s_channels, kernel_size=(1, 1), padding=0, stride=1)
         self.e1 = nn.Conv2d(s_channels, exp1_channels, kernel_size=(1, 1), padding=0, stride=1)
-        self.e3 = nn.Conv2d(in_channels, exp3_channels, kernel_size=(3, 3), padding=0, stride=1)
+        self.e3 = nn.Conv2d(s_channels, exp3_channels, kernel_size=(3, 3), padding=1, stride=1)
 
     def forward(self, x):
         #! aval squeeze:
@@ -52,7 +57,7 @@ class FireBlock(nn.Module):
         exp3 = self.e3(out)
         exp3 = self.activation(exp3)
         #! hala concat:
-        out = torch.cat([exp1, exp3], 1)
+        out = torch.cat((exp1, exp3), dim=1)
         out = self.print(out)
         return out
 
@@ -60,9 +65,33 @@ class SqueezeNet(nn.Module):
 
     def __init__(self, in_channels=3):
         super(SqueezeNet, self).__init__()
-        self.input_conv = nn.Conv2D(in_channels=in_channels, out_channels=96, kernel_size=(7,7), stride=2, stride=1)
+        self.net = torch.nn.Sequential(
+            torch.nn.Conv2d(in_channels=3, out_channels=96, kernel_size=(7, 7), stride=2),
+            torch.nn.MaxPool2d(kernel_size=(3, 3), stride=2),
+            torch.nn.ReLU(),
+            FireBlock(in_channels=96, s_channels=16, exp1_channels=64, exp3_channels=64),
+            FireBlock(in_channels=128, s_channels=16, exp1_channels=64, exp3_channels=64),
+            FireBlock(in_channels=128, s_channels=32, exp1_channels=128, exp3_channels=128),
+            torch.nn.MaxPool2d(kernel_size=(3, 3), stride=2),
+            FireBlock(in_channels=256, s_channels=32, exp1_channels=128, exp3_channels=128),
+            FireBlock(in_channels=256, s_channels=48, exp1_channels=192, exp3_channels=192),
+            FireBlock(in_channels=384, s_channels=48, exp1_channels=192, exp3_channels=192),
+            FireBlock(in_channels=384, s_channels=64, exp1_channels=256, exp3_channels=256),
+            torch.nn.MaxPool2d(kernel_size=(3, 3), stride=2, padding=1),
+            FireBlock(in_channels=512, s_channels=64, exp1_channels=256, exp3_channels=256),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(in_channels=512, out_channels=1000, kernel_size=(1, 1)),
+            torch.nn.AvgPool2d(kernel_size=(13, 13), stride=1)
+            )
 
     def forward(self, x):
-        pass
+        out = self.net(x)
+        return out.view(out.size(0), -1)
 
-x = FireBlock()
+
+if __name__ == '__main__':
+    x = torch.randn((64, 3, 224, 224))
+    sn = SqueezeNet()
+    out = sn(x)
+    print (sn)
+    print (out.shape)
