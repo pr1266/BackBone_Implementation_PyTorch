@@ -133,7 +133,8 @@ class SqueezeExcitation(nn.Module):
         return x * self.se(x)
 
 class InvertdResidualBlock(nn.Module):
-
+    #! che mikone? ba 1*1 miad expand mikone (up-sampling)
+    #! baad miad depthWise mizane
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding, expand_ratio, reduction=4, survival_prob=0.8):
         super(InvertdResidualBlock, self).__init__()
         self.survival_prob = survival_prob
@@ -149,14 +150,20 @@ class InvertdResidualBlock(nn.Module):
             )
 
         self.conv = nn.Sequential(
+            #! inja depthWise
             CnnBlock(
                 hidden_dim, hidden_dim, kernel_size, stride, padding, groups=hidden_dim,
             ),
+            #! inja squeeze Excitation:
             SqueezeExcitation(hidden_dim, reduced_dim),
             nn.Conv2d(hidden_dim, out_channels, 1, bias=False),
             nn.BatchNorm2d(out_channels),
         )
 
+    #! ye survival prob dar nazar migirim barsh
+    #! baad ye random tolid mikonim
+    #! age kamtar az prob bood oon residual block kolan drop mishe
+    #! ein e drop out vali rooye kol e building block emal mishe
     def stochastic_depth(self, x):
 
         if not self.training:
