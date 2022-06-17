@@ -68,7 +68,8 @@ base_model = [
 
 phi_values = {
     #! tuple of: (phi_value, resolution, drop_rate)
-    "b0": (0, 224, 0.2),  #! alpha, beta, gamma, depth = alpha ** phi
+    #! drop rate hamoon zarib e drop out e
+    "b0": (0, 224, 0.2),
     "b1": (0.5, 240, 0.2),
     "b2": (1, 260, 0.3),
     "b3": (2, 300, 0.3),
@@ -82,6 +83,15 @@ phi_values = {
 class CnnBlock(nn.Module):
     #! agha age group=1 bashe cnn mamoolie
     #! age be andaze in_channels bashe, mishe DepthWise conv
+    #! hala depth wise conv chie?
+    #! mige agha man miam be jaye inke hame filter haro ba kernel ha
+    #! conv konam sigma begiram khorooji begiram, miam be tedad e filter ha
+    #! ke mishe hamoon input depth, kernel dar nazar migirim, va nazir be nazir conv
+    #! mikonim, inotri be shedat hajm mohasebat miad paiin
+    #! in group ham dastanesh hamine darvaghe ba group tooye layer ha connection bein e input ha
+    #! va weight haro control mikonim. age group == in_channel bashe
+    #! har input ba ye set az kernel ha ke tedadeshoon barabar e ba out/in hast
+    #! convolve mishan. va vaghti in va out yeki bashan daghighan mishe depthwise
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding, groups=1):
         super(CnnBlock, self).__init__()
         self.cnn = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, groups=groups, bias=False)
@@ -93,15 +103,29 @@ class CnnBlock(nn.Module):
         #! inam vazehe dige
         return self.silu(self.bn(self.cnn(x)))
 
+#! az in squeeze Excitation too inverted residual block estefade mikonim:
+#! in miad az filter ha ye seri etelaat global estekhraj mikone baad miad
+#! ye seri computation anjam mide oon scaler value haro radif mikone baad miad
+#! too input zarb mikone be onvan e khorooji
+#! dar vaghe ba in kar darim channel haro scale mikonim
+#! az har channel ye numeric value mashti dar miarim baad too
+#! khod e filter ha zarb mikonim ta scale she
+#! albate too paper SEnet az fully connected va relu estefade karde
+#! in dashemoon az Conv nemidoonam chera
 class SqueezeExcitation(nn.Module):
 
     def __init__(self, in_channels, reduced_dim):
         super(SqueezeExcitation, self).__init__()
         self.se = nn.Sequential(
+            #! inja avg har filter ro migirim:
             nn.AdaptiveAvgPool2d(1), #! C * H * W ==> C * 1 * 1
+            #! hala reduce mikonim (down sampling):
             nn.Conv2d(in_channels, reduced_dim, kernel_size=1),
+            #! activation mizanim: (non-linearity effect)
             nn.SiLU(),
+            #! va upsampling feature map ha:
             nn.Conv2d(reduced_dim, in_channels, 1),
+            #! tahsham sigmoid
             nn.Sigmoid(),
         )
     
@@ -161,6 +185,7 @@ class EfficientNet(nn.Module):
         )
     
     def calculate_factors(self, version, alpha=1.2, beta=1.1):
+        #! aval miaim parameter haro az roo alpha va beta va phi hesab mikonim:
         phi, res, drop_rate = phi_values[version]
         depth_factor = alpha ** phi
         width_factor = beta ** phi
@@ -174,7 +199,7 @@ class EfficientNet(nn.Module):
         for expand_ratio, channels, repeats, stride, kernel_size in base_model:
             out_channels = 4*ceil(int(channels*width_factor) / 4)
             layers_repeats = ceil(repeats * depth_factor)
-
+            #! be tedad e repeat ha tooye jadval e paper repeat darim:
             for layer in range(layers_repeats):
                 features.append(
                     InvertdResidualBlock(
@@ -183,7 +208,7 @@ class EfficientNet(nn.Module):
                         expand_ratio=expand_ratio,
                         stride = stride if layer == 0 else 1,
                         kernel_size=kernel_size,
-                        padding=kernel_size//2, # if k=1:pad=0, k=3:pad=1, k=5:pad=2
+                        padding=kernel_size//2, #! if k=1:pad=0, k=3:pad=1, k=5:pad=2
                     )
                 )
                 in_channels = out_channels
@@ -211,6 +236,5 @@ def test():
         num_classes=num_classes,
     ).to(device)
     print(model)
-    # print(model(x).shape) # (num_examples, num_classes)
 
 test()
