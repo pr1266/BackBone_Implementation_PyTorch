@@ -7,8 +7,10 @@ import torch.nn as nn
 #! dar vaghea inam mes e resnet o SE o ina idea aslish ye building block e
 #! inception block size height o width ro taghir nemide balke channel haro expand mikone
 #! baad ye chizi, tedad filter ha tooye harkodoom az conv ha ke goftam fargh dare
-#! va tebgh e paper taghir mikone
+#! va tebgh e paper taghir mikone, va vaghean chiz khasi nadare
+#! saat daghighan 6:00 am 20 o nemidoonam chand khordad 1401 va hal nadaram dige print layer bezaram khikhikhikhikhi
 
+#! in vazehe dige ishala:
 class conv_block(nn.Module):
     def __init__(self, in_channels, out_channels, **kwargs):
         super(conv_block, self).__init__()
@@ -20,6 +22,7 @@ class conv_block(nn.Module):
         return self.relu(self.batchnorm(self.conv(x)))
 
 
+#! inam hamoon balaiiast faghat yadam raft begam ke ghable conv ye reduction darim ba kernel 1*1
 class Inception_block(nn.Module):
     def __init__(
         self, in_channels, out_1x1, red_3x3, out_3x3, red_5x5, out_5x5, out_1x1pool):
@@ -42,13 +45,14 @@ class Inception_block(nn.Module):
         )
 
     def forward(self, x):
+        #! inja out ro ConCat mikonim
         return torch.cat(
             [self.branch1(x), self.branch2(x), self.branch3(x), self.branch4(x)], 1
         )
 
-
-
 class InceptionAux(nn.Module):
+    #! in ye ghesmat az maghalast ke ye seri classifier mizare ta az overfit jelogiri kone
+    #! in faghat too train hast too test nist. ideasho doost dashtam (emoji bilakh)
     def __init__(self, in_channels, num_classes):
         super(InceptionAux, self).__init__()
         self.relu = nn.ReLU()
@@ -68,14 +72,14 @@ class InceptionAux(nn.Module):
 
         return x
 
+#! put it all together:
 class GoogLeNet(nn.Module):
     def __init__(self, aux_logits=True, num_classes=1000):
         super(GoogLeNet, self).__init__()
         assert aux_logits == True or aux_logits == False
         self.aux_logits = aux_logits
 
-        # Write in_channels, etc, all explicit in self.conv1, rest will write to
-        # make everything as compact as possible, kernel_size=3 instead of (3,3)
+        #! ye seri layer sher o ver avalesh dare:
         self.conv1 = conv_block(
             in_channels=3,
             out_channels=64,
@@ -88,7 +92,7 @@ class GoogLeNet(nn.Module):
         self.conv2 = conv_block(64, 192, kernel_size=3, stride=1, padding=1)
         self.maxpool2 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        # In this order: in_channels, out_1x1, red_3x3, out_3x3, red_5x5, out_5x5, out_1x1pool
+        #! inja inception net ha gharar migiran:
         self.inception3a = Inception_block(192, 64, 96, 128, 16, 32, 32)
         self.inception3b = Inception_block(256, 128, 128, 192, 32, 96, 64)
         self.maxpool3 = nn.MaxPool2d(kernel_size=(3, 3), stride=2, padding=1)
@@ -107,6 +111,7 @@ class GoogLeNet(nn.Module):
         self.dropout = nn.Dropout(p=0.4)
         self.fc1 = nn.Linear(1024, num_classes)
 
+        #! in yaro classifier ha ke goftam
         if self.aux_logits:
             self.aux1 = InceptionAux(512, num_classes)
             self.aux2 = InceptionAux(528, num_classes)
@@ -114,10 +119,10 @@ class GoogLeNet(nn.Module):
             self.aux1 = self.aux2 = None
 
     def forward(self, x):
+        #! tebgh e paper:
         x = self.conv1(x)
         x = self.maxpool1(x)
         x = self.conv2(x)
-        # x = self.conv3(x)
         x = self.maxpool2(x)
 
         x = self.inception3a(x)
@@ -126,7 +131,7 @@ class GoogLeNet(nn.Module):
 
         x = self.inception4a(x)
 
-        # Auxiliary Softmax classifier 1
+        #! chera bayad esmesh AUX bashe akhe? :/
         if self.aux_logits and self.training:
             aux1 = self.aux1(x)
 
@@ -134,7 +139,7 @@ class GoogLeNet(nn.Module):
         x = self.inception4c(x)
         x = self.inception4d(x)
 
-        # Auxiliary Softmax classifier 2
+        
         if self.aux_logits and self.training:
             aux2 = self.aux2(x)
 
@@ -153,7 +158,6 @@ class GoogLeNet(nn.Module):
             return x
 
 if __name__ == "__main__":
-    # N = 3 (Mini batch size)
     x = torch.randn(3, 3, 224, 224)
     model = GoogLeNet(aux_logits=True, num_classes=1000)
     print(model(x)[2].shape)
