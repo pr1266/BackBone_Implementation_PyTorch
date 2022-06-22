@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-
+import torchvision.models as models
+import os
 #! tebgh e mamool ye architecture dige ba main idea e building block:)
 #! ye concept e DenseBlock tarif karde ke be in shekl amal mikone:
 #! idea paper ine ke resNet ro expand kone
@@ -16,6 +17,7 @@ import torch.nn as nn
 #! ye harekat vase architecture haye mokhtalef:
 #! in tedad repeat haye 1*1 -> 3*3 conv too har DenseBlock hast
 #! tebgh e gofte author ha, conv inja be mani BN-ReLU-Conv hast
+growthRate = 32
 arc = {
     '121': [6, 12, 24, 16],
     '169': [6, 12, 32, 32],
@@ -26,9 +28,10 @@ arc = {
 #! Transition Layer : Done!
 class TransitionalLayer(nn.Module):
 
-    def __init__(self, input_channel, output_channel):
+    def __init__(self, input_channel):
         super(TransitionalLayer, self).__init__()
-        self.conv = nn.Conv2d(input_channel, output_channel, kernel_size=(1,1))
+        #! transition bayad nesf kone channel haro
+        self.conv = nn.Conv2d(in_channels=int(input_channel), out_channels=int(input_channel//2), kernel_size=(1,1), groups=1)
         self.pool = nn.AvgPool2d(kernel_size=(2,2))
 
     def forward(self, x):
@@ -37,35 +40,35 @@ class TransitionalLayer(nn.Module):
         return out
 
 class CnnBlock(nn.Module):
-
-    def __init__(Self, in_channels, out_channels, kernel_size, stride):
+    
+    def __init__(self, in_channels, out_channels, kernel_size, padding, stride=1):
         super(CnnBlock, self).__init__()
         self.conv = nn.Sequential(
             nn.BatchNorm2d(in_channels),
-            nn.ReLU(),
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
         )
 
     def forward(self, x):
-
         return self.conv(x)
 
 class DenseBlock(nn.Module):
 
-    def __init__(self, in_channels, prev_input, num_repeats):
+    def __init__(self, in_channels, num_repeats):
         super(DenseBlock, self).__init__()
-        self.prev_input = prev_input
-        layers = []
-        for _ in range(num_repeats):
-            layers.append(CnnBlock(in_channels, in_channels*4, 1, 1))
-            layers.append(CnnBlock(in_channels*4, in_channels, 3, 1))
-        
-        self.conv = nn.Sequential(*layers)
-
+        self.in_channels = in_channels
+        self.num_repeats = num_repeats
+    
     def forward(self, x):
-        out = self.conv(x)
-        out = torch.concatenate((out, self.prev_input))
-        return out
+        
+        for _ in range(self.num_repeats):
+            inp = x
+            x = CnnBlock(in_channels = self.in_channels, out_channels = growthRate*4, kernel_size=1, padding=0)(x)
+            x = CnnBlock(in_channels = growthRate*4, out_channels = growthRate, kernel_size=3, padding=1)(x)
+            x = torch.cat((x, inp), 1)
+            print(x.size())
+            self.in_channels = x.size(1)
+        return x
 
 class DenseNet(nn.Module):
 
@@ -81,26 +84,36 @@ class DenseNet(nn.Module):
         )
         self.pool1 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2))
         main_layers = []
+        dense_shape = 64
         for i , num_layers in enumerate(self.arc):
+            print(dense_shape)
+            # print(i, num_layers)
             main_layers.append(
                 DenseBlock(
-                    in_channels=
+                    in_channels=dense_shape,
                     num_repeats=num_layers
                     )
-            )
+                )
 
+            s = dense_shape*4
             main_layers.append(
-                TransitionalLayer()
-            )
+                TransitionalLayer(input_channel=s)
+            )  
+            dense_shape = s/2
         self.main = nn.Sequential(*main_layers)
-        self.avg_pool = nn.AdaptiveAvgPool2d()
+        # self.avg_pool = nn.AdaptiveAvgPool2d()
 
     def forward(self, x):
         pass
 
 
 def Test():
-    model = DenseBlock(in_channels)
+    model = DenseNet(arc=arc['121'])
+    x = torch.randn(1, 64, 56, 56)
+    model(x)
 
 if __name__ == '__main__':
+    os.system('cls')
+    # model = models.densenet161()
+    # print(model)
     Test()
