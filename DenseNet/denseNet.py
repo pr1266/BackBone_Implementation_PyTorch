@@ -14,7 +14,8 @@ import torch.nn as nn
 #! fargh ba ResNet: resNet miumad jaam mikard in concat mikone:)
 
 #! ye harekat vase architecture haye mokhtalef:
-#! in tedad repeat haye 1*1 -> 3*3 conv too har DenseBlock hast:
+#! in tedad repeat haye 1*1 -> 3*3 conv too har DenseBlock hast
+#! tebgh e gofte author ha, conv inja be mani BN-ReLU-Conv hast
 arc = {
     '121': [6, 12, 24, 16],
     '169': [6, 12, 32, 32],
@@ -22,17 +23,32 @@ arc = {
     '264': [6, 12, 64, 48],
 }
 
+#! Transition Layer : Done!
 class TransitionalLayer(nn.Module):
 
     def __init__(self, input_channel, output_channel):
         super(TransitionalLayer, self).__init__()
         self.conv = nn.Conv2d(input_channel, output_channel, kernel_size=(1,1))
-        self.pool = nn.MaxPool2d(kernel_size=(2,2))
+        self.pool = nn.AvgPool2d(kernel_size=(2,2))
 
     def forward(self, x):
-        out = self.conv(x)
+        out = self.conv(nn.ReLU(nn.BatchNorm2d(x)))
         out = self.pool(out)
         return out
+
+class CnnBlock(nn.Module):
+
+    def __init__(Self, in_channels, out_channels, kernel_size, stride):
+        super(CnnBlock, self).__init__()
+        self.conv = nn.Sequential(
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride)
+        )
+
+    def forward(self, x):
+
+        return self.conv(x)
 
 class DenseBlock(nn.Module):
 
@@ -41,26 +57,10 @@ class DenseBlock(nn.Module):
         self.prev_input = prev_input
         layers = []
         for _ in range(num_repeats):
-            layers.append(
-                nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=in_channels,
-                    kernel_size=(1,1),
-                    padding=0,
-                    stride=1
-                )
-            )
-            
-            layers.append(
-                nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=in_channels,
-                    kernel_size=(3,3)
-                )
-            )
-
+            layers.append(CnnBlock(in_channels, in_channels*4, 1, 1))
+            layers.append(CnnBlock(in_channels*4, in_channels, 3, 1))
+        
         self.conv = nn.Sequential(*layers)
-
 
     def forward(self, x):
         out = self.conv(x)
@@ -69,7 +69,7 @@ class DenseBlock(nn.Module):
 
 class DenseNet(nn.Module):
 
-    def __init__(self, in_channels=3, arc) -> None:
+    def __init__(self, arc, in_channels=3) -> None:
         super(DenseNet, self).__init__()
         self.arc = arc
         self.conv1 = nn.Conv2d(
@@ -82,11 +82,19 @@ class DenseNet(nn.Module):
         self.pool1 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2))
         main_layers = []
         for i , num_layers in enumerate(self.arc):
-            main_layer.append(
+            main_layers.append(
                 DenseBlock(
                     in_channels=
+                    num_repeats=num_layers
                     )
             )
+
+            main_layers.append(
+                TransitionalLayer()
+            )
+        self.main = nn.Sequential(*main_layers)
+        self.avg_pool = nn.AdaptiveAvgPool2d()
+
     def forward(self, x):
         pass
 
