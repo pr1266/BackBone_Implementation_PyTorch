@@ -2,7 +2,7 @@ from tokenize import group
 import torch
 import torch.nn as nn
 from collections import OrderedDict
-
+import os
 """
 miresim be architecture mobile net
 idea asli paper moarefi "DepthWise Seperable Conv Layer" ast
@@ -72,6 +72,9 @@ class MyMobileNet(nn.Module):
         )
 
         self.in_fts = num_filter
+        #! in amoo oomade mige age len element 1 bood stride 1,1
+        #! age list bood ba len 1, stride 2,2
+        #! age list bood va len 2, tedad repeat ha va tedad filter ha moshakhas mishe:
 
         # if type of sublist is list --> means make stride=(2,2)
         # also check for length of sublist
@@ -127,9 +130,8 @@ class MyMobileNet(nn.Module):
 
         return nn.Sequential(block)
 
-
-
 if __name__ == '__main__':
-    x = torch.randn((2,3,224,224))
+    os.system('cls')
+    x = torch.randn((1,3,224,224))
     model = MyMobileNet()
     print(model(x))
