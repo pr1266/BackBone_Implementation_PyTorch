@@ -46,3 +46,22 @@ class PointWise(nn.Module):
     def forward(self, x):
         return self.conv(x)
     
+
+#! hala jofteshoono mizarim too ye class ta depth-wise-seperable-conv besazam:
+#! mishod hamoon aval ham hamaro too ye class gozasht
+class DepthWiseSeperableConv(nn.Module):
+
+    def __init__(self, in_features, out_features):
+        super(DepthWiseSeperableConv, self).__init__()
+        self.dw = DepthWise(in_channels = in_features)
+        self.pw = PointWise(in_channels = in_features, out_channels = out_features)
+
+    def forward(self, x):
+        return self.pw(self.dw(x))
+
+
+
+
+
+
+
