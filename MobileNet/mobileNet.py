@@ -1,6 +1,7 @@
 from tokenize import group
 import torch
 import torch.nn as nn
+from collections import OrderedDict
 
 """
 miresim be architecture mobile net
@@ -22,10 +23,10 @@ too app haye mobile estefade konim
 #! shabake depth wise mishe
 
 class DepthWise(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, strides):
         super(DepthWise, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=(3,3), padding=(1,1), stride=(1,1), groups=in_channels),
+            nn.Conv2d(in_channels, in_channels, kernel_size=(3,3), padding=(1,1), stride=strides, groups=in_channels),
             nn.BatchNorm2d(in_channels),
             nn.ReLU(inplace=True)
         )
@@ -49,19 +50,86 @@ class PointWise(nn.Module):
 
 #! hala jofteshoono mizarim too ye class ta depth-wise-seperable-conv besazam:
 #! mishod hamoon aval ham hamaro too ye class gozasht
-class DepthWiseSeperableConv(nn.Module):
+class DepthWiseSeparableConv(nn.Module):
 
-    def __init__(self, in_features, out_features):
-        super(DepthWiseSeperableConv, self).__init__()
-        self.dw = DepthWise(in_channels = in_features)
+    def __init__(self, in_features, out_features, strides):
+        super(DepthWiseSeparableConv, self).__init__()
+        self.dw = DepthWise(in_channels = in_features, strides=strides)
         self.pw = PointWise(in_channels = in_features, out_channels = out_features)
 
     def forward(self, x):
         return self.pw(self.dw(x))
 
 
+class MyMobileNet(nn.Module):
+    def __init__(self, in_channels=3, num_filter=32, num_classes=1000):
+        super(MyMobileNet, self).__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, num_filter, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
+            nn.BatchNorm2d(num_filter),
+            nn.ReLU(inplace=True)
+        )
+
+        self.in_fts = num_filter
+
+        # if type of sublist is list --> means make stride=(2,2)
+        # also check for length of sublist
+        # if length = 1 --> means stride=(2,2)
+        # if length = 2 --> means (num_times, num_filter)
+        self.nlayer_filter = [
+            num_filter * 2,  # no list() type --> default stride=(1,1)
+            [num_filter * pow(2, 2)],  # list() type and length is 1 --> means put stride=(2,2)
+            num_filter * pow(2, 2),
+            [num_filter * pow(2, 3)],
+            num_filter * pow(2, 3),
+            [num_filter * pow(2, 4)],
+            # list() type --> check length for this list = 2 --> means (n_times, num_filter)
+            [5, num_filter * pow(2, 4)],
+            [num_filter * pow(2, 5)],
+            num_filter * pow(2, 5)
+        ]
+
+        self.DSC = self.layer_construct()
+
+        self.avgpool = nn.AdaptiveAvgPool2d(output_size=(1, 1))
+        self.fc = nn.Sequential(
+            nn.Linear(1024, num_classes),
+            nn.Softmax()
+        )
+
+    def forward(self, input_image):
+        N = input_image.shape[0]
+        x = self.conv(input_image)
+        x = self.DSC(x)
+        x = self.avgpool(x)
+        x = x.reshape(N, -1)
+        x = self.fc(x)
+        return x
+
+    def layer_construct(self):
+        block = OrderedDict()
+        index = 1
+        for l in self.nlayer_filter:
+            if type(l) == list:
+                if len(l) == 2:  # (num_times, out_channel)
+                    for _ in range(l[0]):
+                        block[str(index)] = DepthWiseSeparableConv(self.in_fts, l[1], strides=(1,1))
+                        index += 1
+                else:  # stride(2,2)
+                    block[str(index)] = DepthWiseSeparableConv(self.in_fts, l[0], strides=(2, 2))
+                    self.in_fts = l[0]
+                    index += 1
+            else:
+                block[str(index)] = DepthWiseSeparableConv(self.in_fts, l, strides=(1,1))
+                self.in_fts = l
+                index += 1
+
+        return nn.Sequential(block)
 
 
 
-
-
+if __name__ == '__main__':
+    x = torch.randn((2,3,224,224))
+    model = MyMobileNet()
+    print(model(x))
