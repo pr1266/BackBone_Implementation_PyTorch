@@ -31,11 +31,14 @@ class TransitionalLayer(nn.Module):
     def __init__(self, input_channel):
         super(TransitionalLayer, self).__init__()
         #! transition bayad nesf kone channel haro
-        self.conv = nn.Conv2d(in_channels=int(input_channel), out_channels=int(input_channel//2), kernel_size=(1,1), groups=1)
+        self.input_channel = input_channel
+        self.conv = nn.Conv2d(in_channels=int(input_channel), out_channels=int(input_channel//2), kernel_size=(1,1), padding=0, stride=1)
         self.pool = nn.AvgPool2d(kernel_size=(2,2))
 
     def forward(self, x):
-        out = self.conv(nn.ReLU(nn.BatchNorm2d(x)))
+        print('x.size: ', x.size())
+        print('input_channel: ', self.input_channel)
+        out = self.conv(x)
         out = self.pool(out)
         return out
 
@@ -44,9 +47,9 @@ class CnnBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, padding, stride=1):
         super(CnnBlock, self).__init__()
         self.conv = nn.Sequential(
-            nn.BatchNorm2d(in_channels),
+            nn.BatchNorm2d(int(in_channels)),
             nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, padding=padding, stride=stride)
+            nn.Conv2d(in_channels=int(in_channels), out_channels=int(out_channels), kernel_size=kernel_size, padding=padding, stride=stride,)
         )
 
     def forward(self, x):
@@ -65,9 +68,9 @@ class DenseBlock(nn.Module):
             inp = x
             x = CnnBlock(in_channels = self.in_channels, out_channels = growthRate*4, kernel_size=1, padding=0)(x)
             x = CnnBlock(in_channels = growthRate*4, out_channels = growthRate, kernel_size=3, padding=1)(x)
-            x = torch.cat((x, inp), 1)
-            print(x.size())
+            x = torch.cat((x, inp), 1)            
             self.in_channels = x.size(1)
+        print('x from DenseBlock : ', x.size())
         return x
 
 class DenseNet(nn.Module):
@@ -86,7 +89,7 @@ class DenseNet(nn.Module):
         main_layers = []
         dense_shape = 64
         for i , num_layers in enumerate(self.arc):
-            print(dense_shape)
+            # print(dense_shape)
             # print(i, num_layers)
             main_layers.append(
                 DenseBlock(
@@ -94,22 +97,35 @@ class DenseNet(nn.Module):
                     num_repeats=num_layers
                     )
                 )
-
-            s = dense_shape*4
+            if i == 3:
+                s = dense_shape*2
+            else:
+                s = dense_shape*4
             main_layers.append(
                 TransitionalLayer(input_channel=s)
             )  
             dense_shape = s/2
         self.main = nn.Sequential(*main_layers)
-        # self.avg_pool = nn.AdaptiveAvgPool2d()
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.linear = nn.Linear(in_features=int(dense_shape), out_features=1000)
+        self.dense_shape = dense_shape
 
     def forward(self, x):
-        pass
+        out = self.conv1(x)
+        out = self.pool1(out)
+        out = self.main(out)
+        out = self.avg_pool(out)
+        out = out.view(out.size(1), -1)
+        out = out.transpose(0, 1)        
+        out = self.linear(out)
+        
+        return out
+
 
 
 def Test():
     model = DenseNet(arc=arc['121'])
-    x = torch.randn(1, 64, 56, 56)
+    x = torch.randn(1, 3, 224, 224)
     model(x)
 
 if __name__ == '__main__':
