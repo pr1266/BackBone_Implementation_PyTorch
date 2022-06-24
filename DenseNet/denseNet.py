@@ -6,13 +6,17 @@ import os
 #! ye concept e DenseBlock tarif karde ke be in shekl amal mikone:
 #! idea paper ine ke resNet ro expand kone
 #! yani har laye faghat be khorooji khodesh vasl nabashe
-#! balke be output hame DenseBlock ha vasle
+#! balke be output hame laye haye ghabli tooye dense block ha vasle
 #! feature maps from prev layers are concatenated onto the inputs of future layers
 #! hala bottleNeck chie? hamoon conv 1*1 ke bahash depth ro control mikardim
 #! kolan network az 2 bakhsh tashkil shode:
 #! 1 - Dense Blocks ke idea aslish channel re-use hast
 #! 2 - BottleNeck ke az conv + pool tashkhil shode va vazife downSampling dare
 #! fargh ba ResNet: resNet miumad jaam mikard in concat mikone:)
+#! 4 ta layer DenseBlock darim va 3 ta Transition layer ke vazife downsampling daran
+#! ma miaim hey feature haro tooye denseBlock ha concat mikonim baad too transition Layer ha
+#! miaim summarize mikonim (down sampling) hamintori ta layer akhar ke baad average pool global mizanim
+#! va baad miad ro classifier o in sohbata
 
 #! ye harekat vase architecture haye mokhtalef:
 #! in tedad repeat haye 1*1 -> 3*3 conv too har DenseBlock hast
