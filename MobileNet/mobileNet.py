@@ -22,9 +22,7 @@ too app haye mobile estefade konim
 #! shabake depth wise mishe
 
 class DepthWise(nn.Module):
-
     def __init__(self, in_channels):
-
         super(DepthWise, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, in_channels, kernel_size=(3,3), padding=(1,1), stride=(1,1), groups=in_channels),
@@ -33,5 +31,18 @@ class DepthWise(nn.Module):
         )
 
     def forward(self, x):
-
         return self.conv(x)
+
+
+class PointWise(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(PointWise, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=(1, 1)),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        return self.conv(x)
+    
