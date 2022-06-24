@@ -36,11 +36,20 @@ class TransitionalLayer(nn.Module):
         self.pool = nn.AvgPool2d(kernel_size=(2,2))
 
     def forward(self, x):
-        print('x.size: ', x.size())
-        print('input_channel: ', self.input_channel)
         out = self.conv(x)
         out = self.pool(out)
         return out
+
+class PrintLayer(nn.Module):
+
+    def __init__(self, name='default', index='NaN'):
+        super(PrintLayer, self).__init__()
+        self.name = name
+        self.index = index
+    
+    def forward(self, x):
+        print(f'\n{self.name} layer {self.index} output size : {x.size()}')
+        return x
 
 class CnnBlock(nn.Module):
     
@@ -57,22 +66,21 @@ class CnnBlock(nn.Module):
 
 class DenseBlock(nn.Module):
 
-    def __init__(self, in_channels, num_repeats):
+    def __init__(self, in_channels, num_repeats, index):
         super(DenseBlock, self).__init__()
         self.in_channels = in_channels
         self.num_repeats = num_repeats
+        self.index = index
     
     def forward(self, x):
-        
         for _ in range(self.num_repeats):
             inp = x
             x = CnnBlock(in_channels = self.in_channels, out_channels = growthRate*4, kernel_size=1, padding=0)(x)
             x = CnnBlock(in_channels = growthRate*4, out_channels = growthRate, kernel_size=3, padding=1)(x)
             x = torch.cat((x, inp), 1)            
             self.in_channels = x.size(1)
-        print('x from DenseBlock : ', x.size())
         return x
-
+      
 class DenseNet(nn.Module):
 
     def __init__(self, arc, in_channels=3) -> None:
@@ -85,51 +93,55 @@ class DenseNet(nn.Module):
             stride=(2,2),
             padding=3
         )
-        self.pool1 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2))
+        self.pool1 = nn.MaxPool2d(kernel_size=(3,3), stride=(2,2), padding=1)
         main_layers = []
         dense_shape = 64
-        for i , num_layers in enumerate(self.arc):
-            # print(dense_shape)
-            # print(i, num_layers)
+        for i , num_layers in enumerate(self.arc):            
+            
             main_layers.append(
                 DenseBlock(
                     in_channels=dense_shape,
-                    num_repeats=num_layers
+                    num_repeats=num_layers,
+                    index=i
                     )
                 )
-            if i == 3:
-                s = dense_shape*2
-            else:
-                s = dense_shape*4
-            main_layers.append(
-                TransitionalLayer(input_channel=s)
-            )  
+            main_layers.append(PrintLayer(name='DenseBlock', index=i+1))
+            s = dense_shape*4
+            if i != 3:
+                main_layers.append(
+                    TransitionalLayer(input_channel=s)
+                )
+                main_layers.append(PrintLayer(name='TransitionBlock', index=i+1))
+            
             dense_shape = s/2
+            
         self.main = nn.Sequential(*main_layers)
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.linear = nn.Linear(in_features=int(dense_shape), out_features=1000)
         self.dense_shape = dense_shape
 
     def forward(self, x):
+        print('input size of DenseNet : ', x.size())
         out = self.conv1(x)
+        out = PrintLayer(name='normal conv', index='1')(out)
         out = self.pool1(out)
+        out = PrintLayer(name='normal max pooling', index='1')(out)
         out = self.main(out)
         out = self.avg_pool(out)
+        out = PrintLayer(name='last average pooling (global)', index='1')(out)
         out = out.view(out.size(1), -1)
-        out = out.transpose(0, 1)        
+        out = out.transpose(0, 1)
         out = self.linear(out)
+        out = PrintLayer(name='linear', index='1')(out)
         
         return out
-
-
 
 def Test():
     model = DenseNet(arc=arc['121'])
     x = torch.randn(1, 3, 224, 224)
     model(x)
+    print('\n', model)
 
 if __name__ == '__main__':
     os.system('cls')
-    # model = models.densenet161()
-    # print(model)
     Test()
