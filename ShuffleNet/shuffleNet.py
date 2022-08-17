@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import os
+os.system('cls')
 
 cfg = {
     'out_planes': [200, 400, 800],
@@ -110,8 +111,12 @@ class ShuffleNet(nn.Module):
 
         return x
 
+def test():
+    
+    model = ShuffleNet(2, cfg['out_planes'])
+    dummy = torch.randn(1, 3, 224, 224)
+    pred = model(dummy)
+    print(model)
 
-model = ShuffleNet(2, cfg['out_planes'])
-dummy = torch.randn(1, 3, 224, 224)
-pred = model(dummy)
-print(pred)
+if __name__ == '__main__':
+    test()
