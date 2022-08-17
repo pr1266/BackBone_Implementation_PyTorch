@@ -59,38 +59,41 @@ class Bottleneck(nn.Module):
         return out
 
 class ShuffleNet(nn.Module):
-  def __init__(self, cfg):
-    super(ShuffleNet, self).__init__()
-    out_planes = cfg['out_planes']
-    num_blocks = cfg['num_blocks']
-    groups = cfg['groups']
-    self.conv1 = nn.Conv2d(3, 24, kernel_size=1, bias = False)
-    self.bn1 = nn.BatchNorm2d(24)
-    self.in_planes = 24
-    self.layer1 = self._make_layer(out_planes[0], num_blocks[0], groups)
-    self.layer2 = self._make_layer(out_planes[1], num_blocks[1], groups)
-    self.layer3 = self._make_layer(out_planes[2], num_blocks[2], groups)
-    self.linear = nn.Linear(out_planes[2], 10) #10 as there are 10 classes
+    def __init__(self, cfg):
+        super(ShuffleNet, self).__init__()
+        out_planes = cfg['out_planes']
+        num_blocks = cfg['num_blocks']
+        groups = cfg['groups']
+        #! first convolution layer mentioned in paper:        
+        self.conv1 = nn.Conv2d(3, 24, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(24)
+        self.in_planes = 24
+        self.layer1 = self._make_layer(out_planes[0], num_blocks[0], groups)
+        self.layer2 = self._make_layer(out_planes[1], num_blocks[1], groups)
+        self.layer3 = self._make_layer(out_planes[2], num_blocks[2], groups)
+        #! final Dense (fully connected) layer:
+        self.linear = nn.Linear(out_planes[2], 10)
 
-  def _make_layer(self, out_planes, num_blocks, groups):
-    layers = []
-    for i in range(num_blocks):
-      stride = 2 if i == 0 else 1
-      cat_planes = self.in_planes if i==0 else 0
-      layers.append(Bottleneck(self.in_planes, out_planes-cat_planes, stride=stride, groups=groups))
-      self.in_planes = out_planes
-    return nn.Sequential(*layers)
+    def _make_layer(self, out_planes, num_blocks, groups):
+        layers = []
+        for i in range(num_blocks):
+            #! num blocks represents repeatation count of bottleneck blocks
+            stride = 2 if i == 0 else 1
+            cat_planes = self.in_planes if i==0 else 0
+            layers.append(Bottleneck(self.in_planes, out_planes-cat_planes, stride=stride, groups=groups))
+            self.in_planes = out_planes
+        return nn.Sequential(*layers)
   
-  def forward(self,x):
-    out = functions.relu(self.bn1(self.conv1(x)))
-    out = self.layer1(out)
-    out = self.layer2(out)
-    out = self.layer3(out)
-    out = functions.avg_pool2d(out, 4)
-    out = out.view(out.size(0), -1)
-    out = self.linear(out)
-    return out
-    
+    def forward(self,x):
+        out = functions.relu(self.bn1(self.conv1(x)))
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = functions.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
+        return out
+
 def ShuffleNetG2():
     cfg = {
         'out_planes': [200, 400, 800],
@@ -98,3 +101,7 @@ def ShuffleNetG2():
         'groups': 2
     }
     return ShuffleNet(cfg)
+
+if __name__ == '__main__':
+    model = ShuffleNetG2()
+    print(model)
