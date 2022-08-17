@@ -1,107 +1,110 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as functions
+import torch.nn.functional as F
 
-class ShuffleBlock(nn.Module):
-    def __init__(self, groups):
-        #! here we identify groups count:
-        super(ShuffleBlock, self).__init__()
-        self.groups = groups
-    
-    def forward(self, x):
-        #! here split tensor size into batch_size, channels, height and width:
-        N,C,H,W = x.size()
-        g = self.groups
-        #! and here we perform shuffle operation:
-        #! indeed, we dont have any weights and computations but a single reshape operation in this block:
-        return x.view(N, g, C//g, H, W).permute(0, 2, 1, 3, 4).reshape(N, C, H, W)
+
+cfg = {
+    'out_planes': [200, 400, 800],
+    'num_blocks': [4, 8, 4],
+    'groups': 2
+}
+
+def shuffle(x, groups):
+    N, C, H, W = x.size()
+    out = x.view(N, groups, C//groups, H, W).permute(0, 2, 1, 3, 4).contiguous().view(N, C, H, W)
+
+    return out
 
 class Bottleneck(nn.Module):
-    def __init__(self, in_planes, out_planes, stride, groups):
-        super(Bottleneck, self).__init__()
+    def __init__(self, in_channels, out_channels, stride, groups):
+        super().__init__()
+
+        mid_channles = int(out_channels/4)
+
+        if in_channels == 24:
+            self.groups = 1
+        else:
+            self.groups = groups
+
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels, mid_channles, 1, groups=self.groups, bias=False),
+            nn.BatchNorm2d(mid_channles),
+            nn.ReLU(inplace=True)
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(mid_channles, mid_channles, 3, stride=stride, padding=1, groups=mid_channles, bias=False),
+            nn.BatchNorm2d(mid_channles),
+            nn.ReLU(inplace=True),
+        )
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(mid_channles, out_channels, 1, groups=groups, bias=False),
+            nn.BatchNorm2d(out_channels)
+        )
+
+        self.shortcut = nn.Sequential(nn.AvgPool2d(3, stride=2, padding=1))
+
         self.stride = stride
-        #! here we identify number of middle channels of bottleneck sub-network:
-        mid_planes = int(out_planes/4)
-        #! as mentioned in paper, we dont apply group convolution for stage 2
-        #! and only stage 2's input channel is 24
-        #! in addition, we dont use channel shuffle in stage 2 so we define g to seperate second stage operation from other stages:
-        g = 1 if in_planes == 24 else groups
-        #! first of all, 1 X 1 point-wise convolution:
-        self.conv1 = nn.Conv2d(in_planes, mid_planes, kernel_size=1, groups=g, bias=False)
-        self.bn1 = nn.BatchNorm2d(mid_planes)
-        
-        #! channel shuffle as mentioned above:
-        self.shuffle1 = ShuffleBlock(groups=g)
-        
-        #! then 3 X 3 conv convolution
-        self.conv2 = nn.Conv2d(mid_planes, mid_planes, kernel_size=3, stride=stride, padding=1, groups=mid_planes, bias=False)
-        self.bn2 = nn.BatchNorm2d(mid_planes)
-        
-        #! and finaly last 1 X 1 point-wise convolution:
-        self.conv3 = nn.Conv2d(mid_planes, out_planes, kernel_size=1, groups=groups, bias=False)
-        self.bn3 = nn.BatchNorm2d(out_planes)
-        
-        self.shortcut = nn.Sequential()
-        #! if stride == 2, we dont have repeats, then as mentioned in paper, we use an average pool layer
-        #! with 3 X 3 kernel size and we concat the result of bottleneck with skip-connection that accualy is avg-pooling applied on input tensor
-        if stride == 2:
-            self.shortcut = nn.Sequential(nn.AvgPool2d(3, stride=2, padding=1))
-    
-    def forward(self,x):
-        out = functions.relu(self.bn1(self.conv1(x)))
-        out = self.shuffle1(out)
-        out = functions.relu(self.bn2(self.conv2(out)))
-        out = self.bn3(self.conv3(out))
-        print(f'out shape :{out.shape}')
-        res = self.shortcut(x)
-        print(f'res shape :{res.shape}')
-        out = functions.relu(torch.cat([out,res], 1)) if self.stride==2 else functions.relu(out+res)
+
+    def forward(self, x):
+
+        out = self.conv1(x)
+        out = shuffle(out, self.groups)
+        out = self.conv2(out)
+        out = self.conv3(out)
+
+        if self.stride == 2:
+            res = self.shortcut(x)
+            out = F.relu(torch.cat([out, res], 1))
+        else:
+            out = F.relu(out+x)
+
         return out
 
 class ShuffleNet(nn.Module):
-    def __init__(self, cfg):
-        super(ShuffleNet, self).__init__()
-        out_planes = cfg['out_planes']
-        num_blocks = cfg['num_blocks']
-        groups = cfg['groups']
-        #! first convolution layer mentioned in paper:        
-        self.conv1 = nn.Conv2d(3, 24, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(24)
-        self.in_planes = 24
-        self.layer1 = self._make_layer(out_planes[0], num_blocks[0], groups)
-        self.layer2 = self._make_layer(out_planes[1], num_blocks[1], groups)
-        self.layer3 = self._make_layer(out_planes[2], num_blocks[2], groups)
-        #! final Dense (fully connected) layer:
-        self.linear = nn.Linear(out_planes[2], 10)
+    def __init__(self, groups, channel_num, class_num=10):
 
-    def _make_layer(self, out_planes, num_blocks, groups):
+        super().__init__()
+
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3, 24, 3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(24),
+            nn.ReLU(inplace=True)
+        )
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        self.stage2 = self.make_layers(24, channel_num[0], 4, 2, groups)
+        self.stage3 = self.make_layers(channel_num[0], channel_num[1], 8, 2, groups)
+        self.stage4 = self.make_layers(channel_num[1], channel_num[2], 4, 2, groups)
+
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(channel_num[2], class_num)
+
+    def make_layers(self, input_channels, output_channels, layers_num, stride, groups):
+
         layers = []
-        for i in range(num_blocks):
-            #! num blocks represents repeatation count of bottleneck blocks
-            stride = 2 if i == 0 else 1
-            cat_planes = self.in_planes if i==0 else 0
-            layers.append(Bottleneck(self.in_planes, out_planes-cat_planes, stride=stride, groups=groups))
-            self.in_planes = out_planes
+        layers.append(Bottleneck(input_channels, output_channels-input_channels, stride, groups))
+        input_channels = output_channels
+
+        for i in range(layers_num-1):
+            Bottleneck(input_channels, output_channels, 1, groups)
+
         return nn.Sequential(*layers)
-  
-    def forward(self,x):
-        out = functions.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        out = functions.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
 
-def ShuffleNetG2():
-    cfg = {
-        'out_planes': [200, 400, 800],
-        'num_blocks': [4, 8, 4],
-        'groups': 2
-    }
-    return ShuffleNet(cfg)
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.maxpool(x)
+        x = self.stage2(x)
+        x = self.stage3(x)
+        x = self.stage4(x)
+        x = self.avgpool(x)
+        x = x.flatten(1)
+        x = self.fc(x)
 
-if __name__ == '__main__':
-    model = ShuffleNetG2()
-    print(model)
+        return x
+
+
+model = ShuffleNet(2, cfg['out_planes'])
+dummy = torch.randn(1, 3, 224, 224)
+pred = model(dummy)
+print(pred)
