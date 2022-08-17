@@ -18,6 +18,15 @@ def shuffle(x, groups):
 
     return out
 
+#! you can use this layer to trace your network
+class CustomLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        print(f'shape of current layer : {x.size()}')
+        return x
+
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, stride, groups):
         super().__init__()
